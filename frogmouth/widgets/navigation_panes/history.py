@@ -44,13 +44,19 @@ class Entry(Option):
             A prompt with icon, etc.
         """
         if isinstance(location, Path):
-            return Text.from_markup(
-                f":page_facing_up: [bold]{location.name}[/]\n[dim]{location.parent}[/]",
+            return Text.assemble(
+                Text.from_markup(":page_facing_up: "),
+                (location.name, "bold"),
+                "\n",
+                (str(location.parent), "dim"),
                 overflow="ellipsis",
             )
-        return Text.from_markup(
-            f":globe_with_meridians: [bold]{Path(location.path).name}[/]"
-            f"\n[dim]{Path(location.path).parent}\n{location.host}[/]",
+        path = Path(location.path)
+        return Text.assemble(
+            Text.from_markup(":globe_with_meridians: "),
+            (path.name, "bold"),
+            "\n",
+            (f"{path.parent}\n{location.host}", "dim"),
             overflow="ellipsis",
         )
 
@@ -102,8 +108,10 @@ class History(NavigationPane):
         value.
         """
         option_list = self.query_one(OptionList).clear_options()
-        for history_id, location in reversed(list(enumerate(locations))):
-            option_list.add_option(Entry(history_id, location))
+        option_list.add_options(
+            Entry(history_id, location)
+            for history_id, location in reversed(list(enumerate(locations)))
+        )
 
     class Goto(Message):
         """Message that requests the viewer goes to a given location."""

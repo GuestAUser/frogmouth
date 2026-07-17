@@ -45,7 +45,7 @@ Welcome to {APPLICATION_TITLE} Help!
 | `Ctrl+q` | Quit the application |
 | `F1` | This help |
 | `F2` | Details about {APPLICATION_TITLE} |
-| `F10` | Toggle dark/light theme |
+| `F10` | Choose a dark theme |
 
 ## Commands
 

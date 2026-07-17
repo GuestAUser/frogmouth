@@ -62,7 +62,7 @@ https://user-images.githubusercontent.com/554369/235305502-2699a70e-c9a6-495e-99
 
 ## Compatibility
 
-Frogmouth runs on Linux, macOS, and Windows. Frogmouth requires Python **3.8** or above.
+Frogmouth runs on Linux, macOS, and Windows. Frogmouth requires Python **3.11** or above.
 
 
 ## Installing
@@ -88,6 +88,27 @@ brew install frogmouth
 
 Whichever method you use, you should have a `frogmouth` command on your path.
 
+### Install this checkout as a user-wide command
+
+To keep Frogmouth in this local checkout while making `frogmouth` available
+from any directory, install it in editable mode with its absolute path:
+
+```
+pipx install --editable /absolute/path/to/frogmouth
+```
+
+This does not need `sudo`. pipx keeps the isolated environment under
+`~/.local/share/pipx` and exposes the command in `~/.local/bin`. Source-code
+edits in the checkout are picked up immediately. Reinstall after changing
+dependencies or package metadata in `pyproject.toml`:
+
+```
+pipx reinstall frogmouth
+```
+
+Remove the command without deleting the checkout with `pipx uninstall
+frogmouth`.
+
 ## Running
 
 Enter `frogmouth` at the prompt to run the app, optionally followed by a path to a Markdown file:
@@ -98,6 +119,7 @@ frogmouth README.md
 
 You can navigate with the mouse or the keyboard.
 Use <kbd>tab</kbd> and <kbd>shift</kbd>+<kbd>tab</kbd> to navigate between the various controls on screen.
+Press <kbd>F10</kbd> to choose from the available dark themes.
 
 ## Features
 

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from collections import deque
 from pathlib import Path
 from typing import Callable
 from webbrowser import open as open_url
 
-from httpx import URL, AsyncClient, HTTPStatusError, RequestError
+from httpx import URL, AsyncClient, HTTPStatusError, Limits, RequestError, Timeout
 from markdown_it import MarkdownIt
 from mdit_py_plugins import front_matter
 from textual import work
 from textual.app import ComposeResult
+from textual.await_complete import AwaitComplete
 from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.message import Message
@@ -28,6 +30,82 @@ PLACEHOLDER = f"""\
 
 Welcome to {APPLICATION_TITLE}!
 """
+
+MAX_DOCUMENT_BYTES: Final[int] = 8 * 1024 * 1024
+"""Maximum decoded size of a remote Markdown document."""
+
+_DOWNLOAD_CHUNK_BYTES: Final[int] = 64 * 1024
+_DOWNLOAD_TIMEOUT: Final[Timeout] = Timeout(
+    connect=5.0, read=30.0, write=10.0, pool=5.0
+)
+_DOWNLOAD_LIMITS: Final[Limits] = Limits(
+    max_connections=4, max_keepalive_connections=2, keepalive_expiry=5.0
+)
+
+# Match complete ECMA-48 terminal sequences before removing residual controls.
+_TERMINAL_SEQUENCE_RE: Final[re.Pattern[str]] = re.compile(
+    r"(?:\x1b\]|\x9d)[^\x07\x1b\x9c\n\r]*(?:\x07|\x1b\\|\x9c)?"
+    r"|(?:\x1b[PX^_]|[\x90\x98\x9e\x9f])[^\x1b\x9c\n\r]*(?:\x1b\\|\x9c)?"
+    r"|(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]"
+    r"|\x1b[ -/]*[0-~]"
+)
+_TERMINAL_CONTROL_RE: Final[re.Pattern[str]] = re.compile(
+    r"[\x00-\x08\x0b-\x1f\x7f-\x9f]"
+)
+
+
+class DocumentTooLargeError(Exception):
+    """Raised when a decoded document exceeds the configured limit."""
+
+    def __init__(self, maximum_bytes: int) -> None:
+        self.maximum_bytes = maximum_bytes
+        super().__init__(
+            f"Document is too large; maximum size is {maximum_bytes:,} bytes."
+        )
+
+
+class _UnsupportedDocumentTypeError(Exception):
+    """Raised when a remote resource is not Markdown-compatible text."""
+
+
+def _strip_terminal_controls(markdown: str) -> str:
+    """Remove terminal escape sequences and control bytes from Markdown."""
+    without_sequences = _TERMINAL_SEQUENCE_RE.sub("", markdown)
+    return _TERMINAL_CONTROL_RE.sub("", without_sequences)
+
+
+class SafeMarkdown(Markdown):
+    """Markdown widget that sanitizes all content before parsing it."""
+
+    def update(self, markdown: str) -> AwaitComplete:
+        return super().update(_strip_terminal_controls(markdown))
+
+
+async def download_markdown(client: AsyncClient, location: URL) -> str:
+    """Download a Markdown document within the decoded-size limit."""
+    async with client.stream(
+        "GET",
+        location,
+        follow_redirects=True,
+        headers={"user-agent": USER_AGENT},
+        timeout=_DOWNLOAD_TIMEOUT,
+    ) as response:
+        response.raise_for_status()
+
+        content_type = response.headers.get("content-type", "").lower()
+        if not any(
+            content_type.startswith(f"text/{sub_type}")
+            for sub_type in ("plain", "markdown", "x-markdown")
+        ):
+            raise _UnsupportedDocumentTypeError
+
+        content = bytearray()
+        async for chunk in response.aiter_bytes(chunk_size=_DOWNLOAD_CHUNK_BYTES):
+            if len(content) + len(chunk) > MAX_DOCUMENT_BYTES:
+                raise DocumentTooLargeError(MAX_DOCUMENT_BYTES)
+            content.extend(chunk)
+
+        return content.decode(response.encoding or "utf-8", errors="replace")
 
 
 class History:
@@ -95,8 +173,12 @@ class History:
         return False
 
     def __delitem__(self, index: int) -> None:
+        normalized_index = index if index >= 0 else len(self._history) + index
         del self._history[index]
-        self._current = max(len(self._history) - 1, self._current)
+        if normalized_index < self._current:
+            self._current -= 1
+        elif self._current >= len(self._history):
+            self._current = max(len(self._history) - 1, 0)
 
 
 class Viewer(VerticalScroll, can_focus=True, can_focus_children=True):
@@ -144,7 +226,7 @@ class Viewer(VerticalScroll, can_focus=True, can_focus_children=True):
 
     def compose(self) -> ComposeResult:
         """Compose the markdown viewer."""
-        yield Markdown(
+        yield SafeMarkdown(
             PLACEHOLDER,
             parser_factory=lambda: MarkdownIt("gfm-like").use(
                 front_matter.front_matter_plugin
@@ -217,42 +299,27 @@ class Viewer(VerticalScroll, can_focus=True, can_focus_children=True):
         """
 
         try:
-            async with AsyncClient() as client:
-                response = await client.get(
-                    location,
-                    follow_redirects=True,
-                    headers={"user-agent": USER_AGENT},
-                )
+            async with AsyncClient(
+                limits=_DOWNLOAD_LIMITS, timeout=_DOWNLOAD_TIMEOUT
+            ) as client:
+                content = await download_markdown(client, location)
+        except _UnsupportedDocumentTypeError:
+            open_url(str(location))
+            return
+        except DocumentTooLargeError as error:
+            self.app.push_screen(
+                ErrorDialog("Document too large", f"{location}\n\n{error}")
+            )
+            return
         except RequestError as error:
             self.app.push_screen(ErrorDialog("Error getting document", str(error)))
             return
-
-        try:
-            response.raise_for_status()
         except HTTPStatusError as error:
             self.app.push_screen(ErrorDialog("Error getting document", str(error)))
             return
 
-        # There didn't seem to be an error transporting the data, and
-        # neither did there seem to be an error with the resource itself. So
-        # at this point we should hopefully have the document's content.
-        # However... it's possible we've been fooled into loading up
-        # something that looked like it was a markdown file, but really it's
-        # a web-rendering of such a file; so as a final check we make sure
-        # we're looking at something that's plain text, or actually
-        # Markdown.
-        content_type = response.headers.get("content-type", "")
-        if any(
-            content_type.startswith(f"text/{sub_type}")
-            for sub_type in ("plain", "markdown", "x-markdown")
-        ):
-            self.document.update(response.text)
-            self._post_load(location, remember)
-        else:
-            # Didn't look like something we could handle with the Markdown
-            # viewer. We could throw up an error, or we could just be nice
-            # to the user. Let's be nice...
-            open_url(str(location))
+        self.document.update(content)
+        self._post_load(location, remember)
 
     def visit(self, location: Path | URL, remember: bool = True) -> None:
         """Visit a location.

@@ -36,9 +36,14 @@ class Entry(Option):
         Returns:
             A prompt with icon, etc.
         """
-        return Text.from_markup(
+        icon = Text.from_markup(
             f":{'page_facing_up' if isinstance(bookmark.location, Path) else 'globe_with_meridians'}: "
-            f"[bold]{bookmark.title}[/]\n[dim]{bookmark.location}[/]",
+        )
+        return Text.assemble(
+            icon,
+            (bookmark.title, "bold"),
+            "\n",
+            (str(bookmark.location), "dim"),
             overflow="ellipsis",
         )
 

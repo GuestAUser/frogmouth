@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from json import JSONEncoder, dumps, loads
+from json import JSONEncoder, dumps
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,7 @@ from httpx import URL
 
 from ..utility import is_likely_url
 from .data_directory import data_directory
+from .json_file import read_json_value, write_json_text
 
 
 def history_file() -> Path:
@@ -42,7 +43,7 @@ def save_history(history: list[Path | URL]) -> None:
     Args:
         history: The history to save.
     """
-    history_file().write_text(dumps(history, indent=4, cls=HistoryEncoder))
+    write_json_text(history_file(), dumps(history, indent=4, cls=HistoryEncoder))
 
 
 def load_history() -> list[Path | URL]:
@@ -51,11 +52,14 @@ def load_history() -> list[Path | URL]:
     Returns:
         The history.
     """
-    return (
-        [
-            URL(location) if is_likely_url(location) else Path(location)
-            for location in loads(history.read_text())
-        ]
-        if (history := history_file()).exists()
-        else []
-    )
+    history = history_file()
+    if not history.exists():
+        return []
+    locations = read_json_value(history)
+    if not isinstance(locations, list):
+        return []
+    return [
+        URL(location) if is_likely_url(location) else Path(location)
+        for location in locations
+        if isinstance(location, str)
+    ]

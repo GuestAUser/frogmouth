@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from json import JSONEncoder, dumps, loads
+from json import JSONEncoder, dumps
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -10,6 +10,7 @@ from httpx import URL
 
 from ..utility import is_likely_url
 from .data_directory import data_directory
+from .json_file import read_json_value, write_json_text
 
 
 class Bookmark(NamedTuple):
@@ -51,7 +52,9 @@ def save_bookmarks(bookmarks: list[Bookmark]) -> None:
     Args:
         bookmarks: The bookmarks to save.
     """
-    bookmarks_file().write_text(dumps(bookmarks, indent=4, cls=BookmarkEncoder))
+    write_json_text(
+        bookmarks_file(), dumps(bookmarks, indent=4, cls=BookmarkEncoder)
+    )
 
 
 def load_bookmarks() -> list[Bookmark]:
@@ -60,13 +63,22 @@ def load_bookmarks() -> list[Bookmark]:
     Returns:
         The bookmarks.
     """
-    return (
-        [
+    bookmarks = bookmarks_file()
+    if not bookmarks.exists():
+        return []
+    saved_bookmarks = read_json_value(bookmarks)
+    if not isinstance(saved_bookmarks, list):
+        return []
+    loaded_bookmarks: list[Bookmark] = []
+    for saved_bookmark in saved_bookmarks:
+        if not isinstance(saved_bookmark, list) or len(saved_bookmark) != 2:
+            continue
+        title, location = saved_bookmark
+        if not isinstance(title, str) or not isinstance(location, str):
+            continue
+        loaded_bookmarks.append(
             Bookmark(
                 title, URL(location) if is_likely_url(location) else Path(location)
             )
-            for (title, location) in loads(bookmarks.read_text())
-        ]
-        if (bookmarks := bookmarks_file()).exists()
-        else []
-    )
+        )
+    return loaded_bookmarks

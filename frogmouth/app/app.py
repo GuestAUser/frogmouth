@@ -28,7 +28,9 @@ class MarkdownViewer(App[None]):
         """
         super().__init__()
         self._args = cli_args
-        self.dark = not load_config().light_mode
+        configured_theme = load_config().theme
+        theme = self.available_themes.get(configured_theme)
+        self.theme = configured_theme if theme is not None and theme.dark else "textual-dark"
 
     def on_mount(self) -> None:
         """Set up the application after the DOM is ready."""

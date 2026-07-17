@@ -17,7 +17,13 @@ from textual.widgets import Footer, Markdown
 
 from .. import __version__
 from ..data import load_config, load_history, save_config, save_history
-from ..dialogs import ErrorDialog, HelpDialog, InformationDialog, InputDialog
+from ..dialogs import (
+    ErrorDialog,
+    HelpDialog,
+    InformationDialog,
+    InputDialog,
+    ThemeDialog,
+)
 from ..utility import (
     build_raw_bitbucket_url,
     build_raw_codeberg_url,
@@ -86,7 +92,7 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
         Binding("f2", "about", "About"),
         Binding("ctrl+n", "navigation", "Navigation"),
         Binding("ctrl+q", "app.quit", "Quit"),
-        Binding("f10", "toggle_theme", "", show=False),
+        Binding("f10", "select_theme", "", show=False),
     ]
     """The keyboard bindings for the main screen."""
 
@@ -541,13 +547,24 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
             partial(self.add_bookmark, location),
         )
 
-    def action_toggle_theme(self) -> None:
-        """Toggle the light/dark mode theme."""
+    def _apply_theme(self, theme_name: str | None) -> None:
+        """Apply and persist a selected dark theme."""
+        if theme_name is None:
+            return
+        theme = self.app.available_themes.get(theme_name)
+        if theme is None or not theme.dark:
+            return
         config = load_config()
-        config.light_mode = not config.light_mode
+        config.theme = theme_name
         save_config(config)
-        # pylint:disable=attribute-defined-outside-init
-        self.app.dark = not config.light_mode
+        self.app.theme = theme_name
+
+    def action_select_theme(self) -> None:
+        """Open the dark-theme selector."""
+        dark_themes = (
+            name for name, theme in self.app.available_themes.items() if theme.dark
+        )
+        self.app.push_screen(ThemeDialog(dark_themes, self.app.theme), self._apply_theme)
 
     def action_reload(self) -> None:
         """Reload the current document."""
