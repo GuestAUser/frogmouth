@@ -1,5 +1,3 @@
-"""Provides code for saving and loading the history."""
-
 from __future__ import annotations
 
 from json import JSONEncoder, dumps
@@ -14,44 +12,19 @@ from .json_file import read_json_value, write_json_text
 
 
 def history_file() -> Path:
-    """Get the location of the history file.
-
-    Returns:
-        The location of the history file.
-    """
     return data_directory() / "history.json"
 
 
 class HistoryEncoder(JSONEncoder):
-    """JSON encoder for the history data."""
-
     def default(self, o: object) -> Any:
-        """Handle the Path and URL values.
-
-        Args:
-            o: The object to handle.
-
-        Return:
-            The encoded object.
-        """
         return str(o) if isinstance(o, (Path, URL)) else o
 
 
 def save_history(history: list[Path | URL]) -> None:
-    """Save the given history.
-
-    Args:
-        history: The history to save.
-    """
     write_json_text(history_file(), dumps(history, indent=4, cls=HistoryEncoder))
 
 
 def load_history() -> list[Path | URL]:
-    """Load the history.
-
-    Returns:
-        The history.
-    """
     history = history_file()
     if not history.exists():
         return []

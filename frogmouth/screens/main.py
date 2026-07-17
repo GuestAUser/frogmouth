@@ -160,7 +160,6 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
         # https://github.com/Textualize/textual/issues/2380
         self.query_one(Markdown).can_focus_children = False
 
-        # Load up any history that might be saved.
         if history := load_history():
             self.query_one(Viewer).load_history(history)
 
@@ -347,7 +346,6 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
         Args:
             event: The location change event.
         """
-        # Update the omnibox with whatever is appropriate for the new location.
         self.query_one(Omnibox).visiting = (
             str(event.viewer.location) if event.viewer.location is not None else ""
         )
@@ -392,8 +390,6 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
         Args:
             event: The Markdown link click event to handle.
         """
-        # We'll be using the current location to help work out some relative
-        # things.
         current_location = self.query_one(Viewer).location
         # If the link we're to handle obviously looks like URL...
         if is_likely_url(event.href):
@@ -405,7 +401,6 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
             # visit the file at the remote location.
             self.visit(current_location.copy_with().join(event.href))
         elif (local_file := Path(event.href)).exists():
-            # It looks like a local file and it exists...
             self.visit(local_file)
         elif (
             isinstance(current_location, Path)
@@ -541,7 +536,6 @@ class Main(Screen[None]):  # pylint:disable=too-many-public-methods
         # location; let's make the filename the default title.
         title = (location if isinstance(location, Path) else Path(location.path)).name
 
-        # Give the user a chance to edit the title.
         self.app.push_screen(
             InputDialog("Bookmark title:", title),
             partial(self.add_bookmark, location),

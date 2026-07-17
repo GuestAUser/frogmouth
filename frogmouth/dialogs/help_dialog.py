@@ -88,7 +88,6 @@ Anywhere where `<file>` is omitted it is assumed `README.md` is desired.
 Anywhere where `<branch>` is omitted a test is made for the desired file on
 first a `main` and then a `master` branch.
 """
-"""The main help text for the application."""
 
 
 class HelpDialog(ModalScreen[None]):
@@ -120,7 +119,6 @@ class HelpDialog(ModalScreen[None]):
     BINDINGS = [
         Binding("escape,f1", "dismiss(None)", "", show=False),
     ]
-    """Bindings for the help dialog."""
 
     def compose(self) -> ComposeResult:
         """Compose the help screen."""

@@ -24,7 +24,6 @@ class Entry(Option):
     def __init__(self, bookmark: Bookmark) -> None:
         super().__init__(self._as_prompt(bookmark))
         self.bookmark = bookmark
-        """The bookmark that this entry relates to."""
 
     @staticmethod
     def _as_prompt(bookmark: Bookmark) -> Text:
@@ -66,19 +65,16 @@ class Bookmarks(NavigationPane):
         border: none;
     }
     """
-    """The default CSS for the bookmarks navigation pane."""
 
     BINDINGS = [
         Binding("delete", "delete", "Delete the bookmark"),
         Binding("r", "rename", "Rename the bookmark"),
     ]
-    """The bindings for the bookmarks navigation pane."""
 
     def __init__(self) -> None:
         """Initialise the bookmarks navigation pane."""
         super().__init__("Bookmarks")
         self._bookmarks: list[Bookmark] = load_bookmarks()
-        """The internal list of bookmarks."""
 
     def compose(self) -> ComposeResult:
         """Compose the child widgets."""

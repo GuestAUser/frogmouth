@@ -52,14 +52,12 @@ def get_args() -> Namespace:
         The result of parsing the arguments.
     """
 
-    # Create the parser object.
     parser = ArgumentParser(
         prog=PACKAGE_NAME,
         description=f"{APPLICATION_TITLE} -- A Markdown viewer for the terminal.",
         epilog=f"v{__version__}",
     )
 
-    # Add --version
     parser.add_argument(
         "-v",
         "--version",
@@ -68,10 +66,8 @@ def get_args() -> Namespace:
         version=f"%(prog)s {__version__} (Textual v{textual_version})",
     )
 
-    # The remainder is the file to view.
     parser.add_argument("file", help="The Markdown file to view", nargs="*")
 
-    # Finally, parse the command line.
     return parser.parse_args()
 
 

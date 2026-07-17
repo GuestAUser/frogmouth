@@ -1,5 +1,3 @@
-"""Provides the dark-theme selector."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -83,6 +81,5 @@ class ThemeDialog(ModalScreen[str | None]):
 
     @on(OptionList.OptionSelected)
     def select_theme(self, event: OptionList.OptionSelected) -> None:
-        """Return the selected theme name."""
         if event.option_id is not None:
             self.dismiss(event.option_id)
